@@ -56,7 +56,7 @@ def main():
             grid_size, dt, tau_th=5e-3, alpha_heat=1.0, kappa=1.0,
             alpha_pos=0.27, alpha_neg=0.38, q_thresh=0.08),
         "Hybrid (custom)": HybridModel(
-            grid_size, dt, tau_slow=5e-3, R=1.0, alpha=0.3, q_thresh=0.012),
+            grid_size, dt, tau_slow=5e-3, R=1.0, alpha=0.4, x0=0.006, q_thresh=0.004156),
     }
 
     tau_decode = 0.02  # "medium" fading time -- matches the middle case in compare_models.py

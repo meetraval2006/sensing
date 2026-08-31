@@ -5,6 +5,6 @@ Mechanism1_WSe2_dual_branch   0.08      2.680         3.534         1.00
 Mechanism2_pyro_phototronic   0.005     1.613         1.613         0.99      
 Mechanism2_pyro_phototronic   0.02      2.044         2.051         0.99      
 Mechanism2_pyro_phototronic   0.08      3.798         4.048         0.99      
-Hybrid_custom                 0.005     1.243         1.243         1.00      
-Hybrid_custom                 0.02      1.573         1.594         1.00      
-Hybrid_custom                 0.08      2.963         3.635         1.00      
+Hybrid_custom                 0.005     1.059         1.059         1.00      
+Hybrid_custom                 0.02      1.396         1.432         1.00      
+Hybrid_custom                 0.08      2.692         3.540         1.00      

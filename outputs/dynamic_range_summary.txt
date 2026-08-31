@@ -1,5 +1,5 @@
 Mechanism 1 (linear)         floor=0.004    detectable dP range=[4.12e-03, 1.00e+01]  DR = 67.7 dB (sim units)
 Mechanism 2 (sub-linear)     floor=0.08     detectable dP range=[2.03e-05, 1.00e+01]  DR = 113.8 dB (sim units)
-Hybrid                       floor=0.012    detectable dP range=[4.92e-04, 1.00e+01]  DR = 86.2 dB (sim units)
+Hybrid                       floor=0.004156 detectable dP range=[2.89e-03, 1.00e+01]  DR = 70.8 dB (sim units)
 
 NOTE: dB values use this simulation's arbitrary intensity units and each model's own hand-tuned q_thresh floor -- they are internally consistent for comparing the three models to each other, but are NOT literally comparable to the papers' measured 110 dB / 60-70 dB figures (those used calibrated mW/cm^2 units and real device noise floors).

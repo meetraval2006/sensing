@@ -20,11 +20,15 @@ We do this for:
     exactly linear in R by construction, so this should recover A = k*R with
     R^2 essentially 1.0 -- a direct, checkable confirmation that our
     implementation matches the paper's reported relationship.
-  - Hybrid: R is scaled first, THEN each branch is sign-preserving
-    power-law compressed before differencing, so amplitude vs. R should be
-    sub-linear -- directly illustrating the tradeoff documented in
-    device_hybrid.py: the hybrid trades away exact linear programmability
-    for extended dynamic range (see analysis_dynamic_range.py).
+  - Hybrid (v3, linear-core + boosted tail, see device_hybrid.py): above a
+    knee x0 the transient passes through UNCHANGED, so A(R) is literally
+    identical to Mechanism 1's line for large enough R*step. Below the
+    knee (small R), the sublinear tail BOOSTS the amplitude above what pure
+    linear scaling would give -- so the hybrid's curve should sit on top of
+    Mechanism 1's line at low R and merge into it exactly at high R. This
+    is the flip side of analysis_fixed_threshold_range.py's finding: the
+    same boosted tail that helps a fixed threshold survive a dimmer scene
+    also means a fixed R sees more amplitude at weak signal levels here.
 """
 
 import sys
@@ -55,14 +59,18 @@ def peak_amplitude_mechanism1(R, tau_slow, dt, n_steps, step_time, L_before, L_a
     return peak
 
 
-def peak_amplitude_hybrid(R, alpha, tau_slow, dt, n_steps, step_time,
-                           L_before, L_after, eps=1e-3):
-    """Same step response but through device_hybrid.py's v2 architecture:
-    exact linear difference first, THEN compress the transient (see
-    device_hybrid.py's module docstring for why this order -- not
-    compress-each-branch-then-subtract -- is the corrected design)."""
-    def compress(x):
-        return np.sign(x) * (np.power(np.abs(x) + eps, alpha) - eps ** alpha)
+def peak_amplitude_hybrid(R, alpha, x0, tau_slow, dt, n_steps, step_time,
+                           L_before, L_after, eps=1e-6):
+    """Same step response but through device_hybrid.py's v3 architecture:
+    exact linear difference first, then a linear-core/boosted-tail shape --
+    passes through UNCHANGED above the knee x0, boosted below it (see
+    device_hybrid.py's module docstring)."""
+    def shape(x):
+        ax = abs(x)
+        if ax >= x0:
+            return x
+        boosted = np.sign(x) * x0 * (max(ax, eps) / x0) ** alpha
+        return boosted
 
     I_slow_raw = R * L_before
     peak = 0.0
@@ -72,7 +80,7 @@ def peak_amplitude_hybrid(R, alpha, tau_slow, dt, n_steps, step_time,
         raw_fast = R * L
         I_slow_raw += (dt / tau_slow) * (R * L - I_slow_raw)
         I_diff = raw_fast - I_slow_raw
-        peak = max(peak, abs(compress(I_diff)))
+        peak = max(peak, abs(shape(I_diff)))
     return peak
 
 
@@ -83,14 +91,17 @@ def main():
     step_time = 0.02
     L_before, L_after = 0.5, 2.5  # matches spot_simulator's baseline/peak scale
 
-    R_values = np.linspace(0.1, 3.0, 25)
+    # Log-spaced and extended well below the compression knee (R ~ 0.003,
+    # see main() below) so the boosted-tail deviation from Mechanism 1's
+    # line is actually visible in the plot, not just claimed in text.
+    R_values = np.logspace(-4, np.log10(3.0), 40)
 
     A_mech1 = np.array([
         peak_amplitude_mechanism1(R, tau_slow, dt, n_steps, step_time, L_before, L_after)
         for R in R_values
     ])
     A_hybrid = np.array([
-        peak_amplitude_hybrid(R, 0.3, tau_slow, dt, n_steps, step_time, L_before, L_after)
+        peak_amplitude_hybrid(R, 0.4, 0.006, tau_slow, dt, n_steps, step_time, L_before, L_after)
         for R in R_values
     ])
 
@@ -101,30 +112,46 @@ def main():
     ss_tot = np.sum((A_mech1 - A_mech1.mean()) ** 2)
     r2 = 1 - ss_res / ss_tot
 
-    fig, ax = plt.subplots(figsize=(6.5, 5.2))
-    ax.plot(R_values, A_mech1, "o-", color="tab:blue",
-            label=f"Mechanism 1 (dual-branch): A = k*R fit, k={k_fit:.3f}, R^2={r2:.5f}")
-    ax.plot(R_values, A_hybrid, "s-", color="tab:orange",
-            label="Hybrid (compressed branches): sub-linear in R")
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5.2))
+
+    ax = axes[0]
+    ax.plot(R_values, A_mech1, "o-", color="tab:blue", markersize=3,
+            label=f"Mechanism 1: A = k*R fit, k={k_fit:.3f}, R^2={r2:.5f}")
+    ax.plot(R_values, A_hybrid, "s-", color="tab:orange", markersize=3,
+            label="Hybrid v3: merges into Mech.1's line at high R")
     ax.set_xlabel("Programmed responsivity, R (a.u.)")
     ax.set_ylabel("Peak transient amplitude, A (a.u.)")
-    ax.set_title("Spike-amplitude programmability\n"
-                 "(cf. Zhou et al. Fig. 2f / 3f / Supp. Fig. 19: A = k*R)")
-    ax.legend(fontsize=8)
+    ax.set_title("Linear scale\n(matches Fig. 2f/3f's typical operating range)")
+    ax.legend(fontsize=7)
     ax.grid(alpha=0.3)
-    fig.tight_layout()
+
+    ax2 = axes[1]
+    ax2.loglog(R_values, A_mech1, "o-", color="tab:blue", markersize=3, label="Mechanism 1")
+    ax2.loglog(R_values, A_hybrid, "s-", color="tab:orange", markersize=3, label="Hybrid v3")
+    ax2.set_xlabel("Programmed responsivity, R (a.u., log scale)")
+    ax2.set_ylabel("Peak transient amplitude, A (a.u., log scale)")
+    ax2.set_title("Log-log scale\n(reveals the boosted tail at low R)")
+    ax2.legend(fontsize=7)
+    ax2.grid(alpha=0.3, which="both")
+
+    fig.suptitle("Spike-amplitude programmability "
+                 "(cf. Zhou et al. Fig. 2f / 3f / Supp. Fig. 19: A = k*R)", fontsize=11)
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
     out_path = os.path.join(OUT_DIR, "responsivity_programmability.png")
     fig.savefig(out_path, dpi=130)
     plt.close(fig)
 
+    merge_r = 0.006 / (2.5 - 0.5)  # x0 / step-size -- R above this is exactly linear
     summary = (
         f"Mechanism 1 linear fit: A = {k_fit:.4f} * R + {b_fit:.4f}   "
         f"(R^2 = {r2:.5f}; R^2 -> 1.0 confirms exact linearity, matching the "
         f"paper's reported A = k*R relationship)\n"
-        f"Hybrid model: amplitude vs. R is visibly sub-linear/saturating "
-        f"(compression applied after R-scaling breaks exact proportionality) "
-        f"-- this is the programmability the hybrid trades away in exchange "
-        f"for the dynamic-range gain quantified in analysis_dynamic_range.py."
+        f"Hybrid v3 model: for R above ~{merge_r:.3f} (where the transient magnitude "
+        f"clears the x0=0.006 knee), amplitude vs. R is IDENTICAL to Mechanism 1's line "
+        f"-- no distortion of already-strong signals. Below that, the boosted tail lifts "
+        f"amplitude ABOVE the linear line (not below), trading exact proportionality for "
+        f"extra sensitivity to weak R -- consistent with the fixed-threshold robustness "
+        f"gain measured in analysis_fixed_threshold_range.py."
     )
     print(summary)
     with open(os.path.join(OUT_DIR, "responsivity_summary.txt"), "w") as f:
