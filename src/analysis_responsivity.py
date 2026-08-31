@@ -57,7 +57,10 @@ def peak_amplitude_mechanism1(R, tau_slow, dt, n_steps, step_time, L_before, L_a
 
 def peak_amplitude_hybrid(R, alpha, tau_slow, dt, n_steps, step_time,
                            L_before, L_after, eps=1e-3):
-    """Same step response but through device_hybrid.py's compressed branches."""
+    """Same step response but through device_hybrid.py's v2 architecture:
+    exact linear difference first, THEN compress the transient (see
+    device_hybrid.py's module docstring for why this order -- not
+    compress-each-branch-then-subtract -- is the corrected design)."""
     def compress(x):
         return np.sign(x) * (np.power(np.abs(x) + eps, alpha) - eps ** alpha)
 
@@ -68,7 +71,8 @@ def peak_amplitude_hybrid(R, alpha, tau_slow, dt, n_steps, step_time,
         L = L_after if t >= step_time else L_before
         raw_fast = R * L
         I_slow_raw += (dt / tau_slow) * (R * L - I_slow_raw)
-        peak = max(peak, abs(compress(raw_fast) - compress(I_slow_raw)))
+        I_diff = raw_fast - I_slow_raw
+        peak = max(peak, abs(compress(I_diff)))
     return peak
 
 
@@ -86,7 +90,7 @@ def main():
         for R in R_values
     ])
     A_hybrid = np.array([
-        peak_amplitude_hybrid(R, 0.4, tau_slow, dt, n_steps, step_time, L_before, L_after)
+        peak_amplitude_hybrid(R, 0.3, tau_slow, dt, n_steps, step_time, L_before, L_after)
         for R in R_values
     ])
 

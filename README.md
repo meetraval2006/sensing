@@ -107,9 +107,11 @@ sublinear compression while staying numerically well-behaved near zero. This
 is documented in code — it's a modeling choice, not something from the
 paper, and worth mentioning if asked at the meeting.
 
-### 2.3 Hybrid model — `src/device_hybrid.py`  ⚠️ hypothesis, not established
+### 2.3 Hybrid model — `src/device_hybrid.py`  ⚠️ our construction, empirically tested
 This is **our own construction**, not from either paper — built to test
-whether combining both mechanisms' strengths helps.
+whether combining both mechanisms' strengths helps. It went through two
+designs; both are documented (see the module's docstring for the full
+reasoning):
 
 - Mechanism 1's strength: exact zero-baseline cancellation, precise 5 μs
   timing, but *linear* responsivity → limited dynamic range.
@@ -117,21 +119,29 @@ whether combining both mechanisms' strengths helps.
   low-light sensitivity, but *no* built-in cancellation mechanism at steady
   state (relies entirely on the pyroelectric derivative decaying to zero).
 
-**Hybrid approach:** keep Mechanism 1's two-branch differential structure,
-but apply Mechanism 2's sign-preserving sublinear compression to *each
-branch* before differencing:
+**v1 (superseded):** compressed *each branch separately*, then subtracted —
+`I_net = compress(R·L) − compress(R·L_filtered)`. This still cancels
+exactly at steady state, but compresses the wrong quantity: the compression
+curve is nearly flat at the large operating point a bright baseline puts
+both branches at, so small transients get *attenuated* rather than boosted.
+Result: only a modest dynamic-range gain (70.8 dB vs. Mechanism 1's 67.7 dB)
+and worse tracing accuracy than Mechanism 1.
+
+**v2 (current):** compute the exact linear branch difference *first*
+(identical to Mechanism 1), *then* compress that difference — so the
+compression acts on the transient itself, where its curve is steepest:
 
 ```
-I_fast = compress(R * L(t))
-I_slow = compress(R * L_filtered(t))      # RC-lagged, same as Mechanism 1
-I_net  = I_fast - I_slow
+I_diff = R * L(t) - R * L_filtered(t)     # exact, same as Mechanism 1
+I_net  = compress(I_diff)                  # compress the transient, not the branches
 ```
 
-Both branches see the same compressed steady-state value, so cancellation
-should still hold, while the compression should extend dynamic range. This
-is exactly the property the comparison script tests — **treat it as an open
-question, not a foregone win**, consistent with your v6/v7 notes about not
-assuming an advantage until it's demonstrated (see below).
+This is a **strict improvement over v1 on every axis tested**: dynamic
+range rose to 86.2 dB (+18.5 dB over Mechanism 1, vs. v1's +3.1 dB) and
+tracing accuracy improved to within 0.2 px of Mechanism 1 (vs. v1's 0.6 px
+gap) — at the same, unavoidable cost to exact linear programmability
+(compressing a linear signal is never itself linear). See `RESULTS.md` §2.5
+for the full before/after comparison.
 
 ### 2.4 Physical observation memory (readout) — `src/memory_decode.py`
 **Source:** your uploaded notes (v7 review). This is deliberately kept
@@ -226,7 +236,7 @@ a cross-axis synthesis table. Headline numbers:
 |---|---|---|---|---|
 | Mechanism 1 (WSe2 dual-branch) | 1.03 px | 1.39 px | 2.68 px | 3,016 |
 | Mechanism 2 (pyro-phototronic) | 1.61 px | 2.04 px | 3.80 px | 6,695 |
-| Hybrid (custom) | 1.61 px | 1.72 px | 3.02 px | 2,870 |
+| Hybrid (custom, v2) | 1.24 px | 1.57 px | 2.96 px | 4,806 |
 
 - All three models trace the circular path with 99–100% coverage — the
   fundamental mechanism (event-driven change detection → memory decode)
@@ -234,14 +244,17 @@ a cross-axis synthesis table. Headline numbers:
 - Error grows with fading time `tau` in every model — longer memory smooths
   out noise but adds lag/blur.
 - Mechanism 1 has the lowest tracing error at every `tau`, consistent with
-  its exact steady-state cancellation.
+  its exact steady-state cancellation, but the Hybrid (v2) now sits close
+  behind it rather than roughly midway to Mechanism 2.
 - Separately, `analysis_responsivity.py` confirms Mechanism 1's spike
-  amplitude is *exactly* linear in programmed responsivity R² = 1.00000),
+  amplitude is *exactly* linear in programmed responsivity (R² = 1.00000),
   matching the paper's `A = k*R` claim, and `analysis_dynamic_range.py`
   shows Mechanism 2's sub-linear compression gives it a simulated 113.8 dB
   dynamic range — strikingly close to the paper's own reported >110 dB,
-  even though that exponent (0.27) wasn't tuned to hit this number. Full
-  discussion in `RESULTS.md` §3–§5.
+  even though that exponent (0.27) wasn't tuned to hit this number. The
+  Hybrid (v2) reaches 86.2 dB (+18.5 dB over Mechanism 1), a real gain from
+  fixing the v1 design's compression ordering — full before/after story in
+  `RESULTS.md` §2.5–§5.
 
 ## 6. Known simplifications / good discussion points for the meeting
 

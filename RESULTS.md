@@ -43,11 +43,11 @@ green star rides the true path with only the sparse spike stream to go on.
 | | **Mechanism 1** — WSe₂ dual-branch (Zhou et al., *Nat. Electron.* 2023) | **Mechanism 2** — pyro-phototronic thin-film (Li et al., *InfoMat* 2025) | **Hybrid** — our construction |
 |---|---|---|---|
 | Device topology | 2 parallel opposite-polarity photodiodes (PN + NP), one with a series capacitor | 1 two-terminal device (ZnO/NiO p–n junction + HfO₂ capacitor layer) | 2 branches (like Mech. 1) |
-| Transduction physics | Photovoltaic; branch **speed mismatch** (RC delay) creates the transient | **Pyro-phototronic**: photo-induced heating → pyroelectric current ∝ dT/dt | Photovoltaic branches + sign-preserving power-law compression on each branch |
-| Governing equations | `I_fast = R·L(t)`; `τ·dI_slow/dt = R·L(t) − I_slow`; `I_net = I_fast − I_slow` | `τ_th·dT/dt = α·L(t) − T`; `I_pyro = κ·dT/dt`; `I ∝ P_in^α` (α₊=0.27, α₋=0.38) | `I_fast=compress(R·L)`, `I_slow=compress(R·L_filtered)`, `I_net = I_fast − I_slow` |
-| Steady-state cancellation | **Exact** — both branches converge to the same `R·L`, difference → 0 | **Approximate** — relies on dT/dt decaying to 0, no structural cancellation | **Exact** — both branches see the same compressed steady-state value |
-| Reported headline spec | 5 μs temporal resolution; ≥64 programmable non-volatile responsivity states; 92% SNN gesture accuracy | 110 dB dynamic range (10× the responsivity of a no-junction ZnO device); UV→NIR broadband; 99.25% SNN gesture accuracy | N/A — untested hypothesis, this repo's original contribution |
-| Our reproduction of it | §3 — R²=1.00000 linear fit confirms `A=k·R` | §4 — 113.8 dB simulated dynamic range | §3/§4 — shows the tradeoff directly |
+| Transduction physics | Photovoltaic; branch **speed mismatch** (RC delay) creates the transient | **Pyro-phototronic**: photo-induced heating → pyroelectric current ∝ dT/dt | Photovoltaic branch-difference (like Mech. 1) + sign-preserving power-law compression applied to the transient itself |
+| Governing equations | `I_fast = R·L(t)`; `τ·dI_slow/dt = R·L(t) − I_slow`; `I_net = I_fast − I_slow` | `τ_th·dT/dt = α·L(t) − T`; `I_pyro = κ·dT/dt`; `I ∝ P_in^α` (α₊=0.27, α₋=0.38) | `I_diff = R·L − R·L_filtered` (exact, same as Mech. 1); `I_net = compress(I_diff)` |
+| Steady-state cancellation | **Exact** — both branches converge to the same `R·L`, difference → 0 | **Approximate** — relies on dT/dt decaying to 0, no structural cancellation | **Exact** — `I_diff→0`, and `compress(0)=0` |
+| Reported headline spec | 5 μs temporal resolution; ≥64 programmable non-volatile responsivity states; 92% SNN gesture accuracy | 110 dB dynamic range (10× the responsivity of a no-junction ZnO device); UV→NIR broadband; 99.25% SNN gesture accuracy | N/A — this repo's original contribution; empirically tested below (v1 design failed, v2 fixed it, see §2.5) |
+| Our reproduction of it | §3 — R²=1.00000 linear fit confirms `A=k·R` | §4 — 113.8 dB simulated dynamic range | §2.5, §3, §4 — full v1→v2 iteration and tradeoff |
 
 ---
 
@@ -62,7 +62,7 @@ times τ, then scored against the exactly-known ground truth path.
 |---|---|---|---|---|---|
 | **Mechanism 1** (WSe₂ dual-branch) | 3,016 | **1.03 px** | **1.39 px** | **2.68 px** | 100% |
 | **Mechanism 2** (pyro-phototronic) | 6,695 | 1.61 px | 2.04 px | 3.80 px | 99% |
-| **Hybrid** (custom) | 2,870 | 1.61 px | 1.72 px | 3.02 px | 100% |
+| **Hybrid** (custom, v2) | 4,806 | 1.24 px | 1.57 px | 2.96 px | 100% |
 
 *(`q_thresh` per model was hand-tuned so event counts are in the same
 ballpark — see §5 — otherwise "fires more events" would be confounded with
@@ -78,14 +78,46 @@ ballpark — see §5 — otherwise "fires more events" would be confounded with
   mechanism on this stimulus.
 - Error grows monotonically with τ for all three: a longer fading memory
   smooths noise but blurs/lags a moving object, the expected tradeoff.
-- **Mechanism 1 wins on tracing accuracy at every τ.** Its exact
-  steady-state cancellation (no cancellation *error*, unlike Mechanism 2's
-  reliance on dT/dt fully decaying) gives it the cleanest, lowest-noise
-  event stream, which the memory readout exploits directly.
-- The Hybrid does **not** beat Mechanism 1 here — it lands between the two,
-  closer to Mechanism 1 at short τ. This stimulus (one bright spot, no
-  low-light regime) doesn't stress dynamic range, which is the Hybrid's
-  actual design goal — see §4.
+- **Mechanism 1 still wins on tracing accuracy at every τ**, but the Hybrid
+  (v2 — see §3/§4 for what changed) now sits much closer to it than to
+  Mechanism 2, and closer than the original v1 hybrid did (1.24 px vs. v1's
+  1.61 px at τ=5 ms). Its exact steady-state cancellation (`I_diff=0` before
+  any compression is applied) gives it a clean event stream almost as good
+  as Mechanism 1's, while Mechanism 2's cancellation is only approximate
+  (relies on dT/dt fully decaying), which is the main source of its higher
+  error.
+
+---
+
+## 2.5. The hybrid went through two designs — v1 failed, v2 fixed it
+
+The first hybrid (v1) compressed **each branch separately, then subtracted**:
+`I_net = compress(R·L) − compress(R·L_filtered)`. It still cancelled exactly
+at steady state (`compress(x) − compress(x) = 0` for any function), but it
+compressed the *wrong* quantity: `compress(x) = sign(x)|x|^α` has a steep
+slope near zero and a shallow slope far from zero. Under a bright baseline,
+both branches sit at a large operating point where the curve is nearly
+flat, so a small transient riding on that baseline gets **attenuated**, not
+boosted — backwards from what the thin-film paper's physics actually does
+(it compresses `dT/dt`, the transient itself, not two large absolute
+branch currents that happen to get subtracted afterward). v1 only reached
+70.8 dB simulated dynamic range and traced worse than Mechanism 1 (1.61 px
+vs. 1.03 px at τ=5 ms) — a real but modest, not clearly-worth-it, tradeoff.
+
+**v2** fixes the ordering: compute the exact linear branch difference
+*first* (identical to Mechanism 1), *then* compress that difference:
+```
+I_diff = R·L(t) − R·L_filtered(t)     (exact, same as Mechanism 1)
+I_net  = compress(I_diff)              (compress the transient itself)
+```
+Now the compression acts where it's steepest — near zero — so small
+transients get amplified the way Mechanism 2's actually do. The numbers
+below (§3, §4) are v2, re-tuned (`α=0.3`, `q_thresh=0.012` vs. v1's `α=0.4`,
+`q_thresh=0.0015`) for a comparable event rate. v2 is a **strict
+improvement over v1 on every axis tested**: better tracing accuracy, better
+dynamic range, at the same, already-acknowledged cost to linear
+programmability. `device_hybrid.py`'s module docstring keeps the v1
+reasoning in place — the failure mode is as instructive as the fix.
 
 ---
 
@@ -131,7 +163,7 @@ response clears that model's own tuned detection floor (`q_thresh`).
 ```
 Mechanism 1 (linear)         floor=0.004    DR = 67.7 dB (sim units)
 Mechanism 2 (sub-linear)     floor=0.08     DR = 113.8 dB (sim units)
-Hybrid                       floor=0.0015   DR = 70.8 dB (sim units)
+Hybrid (v2)                  floor=0.012    DR = 86.2 dB (sim units)
 ```
 
 **Caveat first:** these dB values use this simulation's arbitrary intensity
@@ -148,22 +180,26 @@ roughly 3 orders of magnitude smaller. That its *simulated* 113.8 dB lands
 almost exactly on the paper's reported >110 dB is a striking cross-check —
 `α_pos = 0.27` was taken directly from the paper, not tuned to hit this
 number, so the agreement is evidence the model's math is faithful, not
-circular. The Hybrid gets only a modest boost over Mechanism 1 (70.8 dB vs.
-67.7 dB) — its compression exponent (`α=0.4`, arbitrarily chosen as a
-midpoint) is more conservative than Mechanism 2's, so it captures the
-*qualitative* mechanism without a strong quantitative win yet (see §6, next
-steps).
+circular. The Hybrid (v2, §2.5) now gets a real 18.5 dB boost over
+Mechanism 1 (86.2 dB vs. 67.7 dB) — a genuine, non-trivial gain from
+compressing the transient directly instead of compressing each branch
+separately (v1 only managed 70.8 dB with the same style of exponent). It
+still falls well short of Mechanism 2's 113.8 dB, since its exponent
+(`α=0.3`) is more conservative than Mechanism 2's own (`α=0.27`) and it
+retains the two-branch RC structure Mechanism 2 doesn't have — but this is
+now a real, demonstrated middle ground rather than a nearly-flat line
+between the two mechanisms.
 
 ---
 
 ## 5. Cross-axis synthesis
 
-| Property | Mechanism 1 | Mechanism 2 | Hybrid |
+| Property | Mechanism 1 | Mechanism 2 | Hybrid (v2) |
 |---|---|---|---|
-| Trajectory-tracing accuracy (§2) | **Best** | Worst | Middle |
+| Trajectory-tracing accuracy (§2) | **Best** (1.03 px) | Worst (1.61 px) | Close 2nd (1.24 px) |
 | Steady-state cancellation | **Exact** (structural) | Approximate (relies on decay) | **Exact** (structural) |
 | Linear, trainable responsivity (§3) | **Yes**, R²=1.00000 | N/A (single device, no branch gain to sweep this way) | No — sub-linear |
-| Dynamic range (§4, sim units) | 67.7 dB | **113.8 dB** | 70.8 dB |
+| Dynamic range (§4, sim units) | 67.7 dB | **113.8 dB** | 86.2 dB (2nd, +18.5 dB over Mech. 1) |
 | Spectral range | Visible (WSe₂ bandgap-limited) | **UV→NIR** (pyroelectric, not bandgap-limited) | Inherits Mechanism 1's assumption (not modeled) |
 | Reported temporal resolution | **5 μs** | not stated as sharply | Inherits Mechanism 1's τ_slow |
 
@@ -174,10 +210,16 @@ case — an in-sensor SNN with 92% gesture accuracy); **Mechanism 2 is the
 better choice when the scene has extreme brightness range or needs
 non-visible wavelengths** (its actual demonstrated use case — fingerprint
 edge extraction in near-total darkness, 99.25% multispectral gesture
-accuracy). The Hybrid, as built here, gets a *directionally correct but
-quantitatively modest* version of Mechanism 2's dynamic-range advantage
-without fully sacrificing Mechanism 1's tracing accuracy — a genuine
-middle ground, not a strict improvement on either axis alone.
+accuracy). The Hybrid (v2), after the redesign in §2.5, is now a genuine
+middle ground rather than a wash: it lands within 0.2 px of Mechanism 1's
+tracing accuracy while capturing roughly 40% of Mechanism 2's dynamic-range
+gain over Mechanism 1 — a real, demonstrated Pareto point between the two
+mechanisms, not just a hypothesis anymore, though it still trails
+Mechanism 2 outright on dynamic range and Mechanism 1 outright on both
+tracing accuracy and linear programmability. Whether that middle point is
+*useful* depends entirely on the application: worth it if you need some
+extra headroom without giving up trainable weights, not worth it if you
+need either mechanism's extreme.
 
 ---
 
@@ -194,13 +236,16 @@ middle ground, not a strict improvement on either axis alone.
 - `q_thresh` values were hand-tuned for comparable event *rates*, not
   derived from real device datasheets — replace once measured device
   parameters are available.
-- The Hybrid's compression exponent (`α=0.4`) was an arbitrary midpoint
-  between the two papers' reported exponents (0.27/0.38) — §4 shows it
-  under-delivers on dynamic range relative to Mechanism 2's own α; a sweep
-  of this parameter (and of `q_thresh` jointly) is the natural next
-  experiment, likely under a stimulus that actually spans a wide brightness
-  range (dim spot on a bright background) rather than the single-contrast
-  spot used for tracing accuracy in §2.
+- The Hybrid v2's compression exponent (`α=0.3`) is still a hand-picked
+  value, not the result of an actual sweep — it was chosen close to
+  Mechanism 2's own reported range (0.27/0.38) once the v1→v2 architecture
+  fix (§2.5) made that comparison meaningful. It still under-delivers
+  relative to Mechanism 2's full 113.8 dB; a joint sweep of `α` and
+  `q_thresh` (and, ideally, testing under a stimulus that actually spans a
+  wide brightness range — e.g. a dim spot on a bright background — rather
+  than the single-contrast spot used for tracing accuracy in §2) is the
+  natural next experiment to see how much further the Hybrid can close that
+  gap without giving back its tracing-accuracy advantage over Mechanism 2.
 - The §4 dB numbers are simulation-unit-only (see caveat in that section) —
   do not quote them as literal replications of either paper's calibrated
   measurement without re-deriving from physical units.

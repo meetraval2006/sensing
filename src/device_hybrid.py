@@ -2,14 +2,15 @@
 device_hybrid.py
 
 CUSTOM hybrid device model -- our hypothesis, not from either paper.
-This is the thing to actually test/validate at the meeting, not a
-established result.
+This is the thing to actually test/validate, not an established result.
 
 Motivation
 ----------
 Mechanism 1 (dual-branch RC mismatch) gives:
   + exact zero-baseline cancellation under constant light (very clean,
     high temporal precision -- 5 us)
+  + spike amplitude A is EXACTLY linear in programmable responsivity R
+    (A = k*R, verified in analysis_responsivity.py, R^2 = 1.00000)
   - linear responsivity -> limited dynamic range, weak signals near the
     noise floor are hard to separate from strong ones
 
@@ -20,22 +21,36 @@ Mechanism 2 (pyro-phototronic) gives:
     steady state, relies entirely on the pyroelectric derivative decaying
     to zero, which is more sensitive to thermal drift/noise
 
-Hybrid idea: keep Mechanism 1's two-branch differential structure (for
-clean zero-baseline behavior and precise timing), but apply Mechanism 2's
-sign-preserving sublinear compression to EACH branch's photocurrent
-before differencing:
-
-    I_fast = sign(R*L) * |R*L|^alpha
-    I_slow = sign(R*L_filtered) * |R*L_filtered|^alpha   (RC-lagged)
+Version history (kept here deliberately -- the failure is instructive)
+------------------------------------------------------------------------
+v1 (superseded): compressed EACH branch separately, then subtracted:
+    I_fast = compress(R*L)
+    I_slow = compress(R*L_filtered)
     I_net  = I_fast - I_slow
+This still cancels exactly at steady state (compress(x) - compress(x) = 0
+for any function), but it compresses the wrong quantity. compress(x) =
+sign(x)*|x|^alpha has a STEEP slope near x=0 and a SHALLOW slope far from
+zero (that is what "sublinear" means). Under a bright baseline, both
+branches sit at a large operating point where the compression curve is
+nearly flat, so a small transient riding on that baseline gets its
+sensitivity ATTENUATED, not boosted -- the opposite of Mechanism 2's actual
+effect, which compresses the transient dT/dt directly, not two large
+absolute branch currents that happen to get subtracted afterward. This is
+why v1 only reached 70.8 dB simulated dynamic range vs Mechanism 2's 113.8
+dB using a similar exponent range -- it was compressing the wrong signal.
 
-This should retain exact cancellation at steady state (both branches see
-the same compressed steady-state value) while extending dynamic range
-via the compression. Whether this actually improves trajectory-tracing
-fidelity over either individual mechanism is exactly the open question
-to test with compare_models.py -- treat the results as a hypothesis
-test, not a foregone conclusion (matching your v6/v7 note about not
-assuming an advantage until it's demonstrated).
+v2 (current): compute the exact linear branch difference FIRST (identical
+to Mechanism 1's I_net), THEN apply the compression to that difference:
+    I_diff = R*L - R*L_filtered          (exact, same as Mechanism 1)
+    I_net  = compress(I_diff)
+Now the compression acts on the transient itself, which sits near zero
+where the curve is steepest -- small transients get amplified, matching how
+Mechanism 2 actually behaves. Zero-baseline cancellation is still exact and
+now trivial (I_diff = 0 => compress(0) = 0), and dynamic range should track
+much closer to Mechanism 2's, at some cost to A(R) linearity (compressing
+R*(L - L_filtered) is no longer linear in R the way Mechanism 1's raw
+difference is) -- see analysis_responsivity.py and RESULTS.md for the
+measured tradeoff between v1 and v2.
 """
 
 import numpy as np
@@ -64,9 +79,11 @@ class HybridModel:
         raw_fast = self.R * L
         self.I_slow_raw += (self.dt / self.tau_slow) * (self.R * L - self.I_slow_raw)
 
-        I_fast = self._compress(raw_fast)
-        I_slow = self._compress(self.I_slow_raw)
-        I_net = I_fast - I_slow
+        # v2: difference FIRST (exact, linear, matches Mechanism 1 exactly),
+        # THEN compress the resulting transient -- see module docstring for
+        # why this order matters.
+        I_diff = raw_fast - self.I_slow_raw
+        I_net = self._compress(I_diff)
 
         self.charge += I_net * self.dt
 

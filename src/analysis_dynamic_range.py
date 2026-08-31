@@ -69,6 +69,8 @@ def peak_mechanism2(tau_th, dt, n_steps, step_time, L_base, dP,
 
 
 def peak_hybrid(R, alpha, tau_slow, dt, n_steps, step_time, L_base, dP, eps=1e-3):
+    """v2 architecture: exact linear difference first, then compress the
+    transient -- see device_hybrid.py's module docstring."""
     def compress(x):
         return np.sign(x) * (np.power(np.abs(x) + eps, alpha) - eps ** alpha)
 
@@ -79,7 +81,8 @@ def peak_hybrid(R, alpha, tau_slow, dt, n_steps, step_time, L_base, dP, eps=1e-3
         L = L_base + dP if t >= step_time else L_base
         raw_fast = R * L
         I_slow_raw += (dt / tau_slow) * (R * L - I_slow_raw)
-        peak = max(peak, abs(compress(raw_fast) - compress(I_slow_raw)))
+        I_diff = raw_fast - I_slow_raw
+        peak = max(peak, abs(compress(I_diff)))
     return peak
 
 
@@ -105,7 +108,7 @@ def main():
                           for dP in dP_values])
     peaks_m2 = np.array([peak_mechanism2(5e-3, dt, n_steps, step_time, L_base, dP)
                           for dP in dP_values])
-    peaks_hy = np.array([peak_hybrid(1.0, 0.4, 5e-3, dt, n_steps, step_time, L_base, dP)
+    peaks_hy = np.array([peak_hybrid(1.0, 0.3, 5e-3, dt, n_steps, step_time, L_base, dP)
                           for dP in dP_values])
 
     # Detection floor = each model's tuned q_thresh from compare_models.py,
@@ -113,7 +116,7 @@ def main():
     # trajectory-tracing comparison run."
     floors = {"Mechanism 1 (linear)": 0.004,
               "Mechanism 2 (sub-linear)": 0.08,
-              "Hybrid": 0.0015}
+              "Hybrid": 0.012}
     peaks = {"Mechanism 1 (linear)": peaks_m1,
              "Mechanism 2 (sub-linear)": peaks_m2,
              "Hybrid": peaks_hy}
