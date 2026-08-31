@@ -1,0 +1,2 @@
+Mechanism 1 linear fit: A = 1.9600 * R + 0.0000   (R^2 = 1.00000; R^2 -> 1.0 confirms exact linearity, matching the paper's reported A = k*R relationship)
+Hybrid model: amplitude vs. R is visibly sub-linear/saturating (compression applied after R-scaling breaks exact proportionality) -- this is the programmability the hybrid trades away in exchange for the dynamic-range gain quantified in analysis_dynamic_range.py.

@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.DS_Store
+
+# Copyrighted source papers must never be committed to this repo
+*.pdf

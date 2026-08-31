@@ -1,0 +1,10 @@
+Model                         tau(s)    RMSE signed   RMSE rect.    coverage  
+Mechanism1_WSe2_dual_branch   0.005     1.027         1.027         1.00      
+Mechanism1_WSe2_dual_branch   0.02      1.387         1.421         1.00      
+Mechanism1_WSe2_dual_branch   0.08      2.680         3.534         1.00      
+Mechanism2_pyro_phototronic   0.005     1.613         1.613         0.99      
+Mechanism2_pyro_phototronic   0.02      2.044         2.051         0.99      
+Mechanism2_pyro_phototronic   0.08      3.798         4.048         0.99      
+Hybrid_custom                 0.005     1.609         1.609         1.00      
+Hybrid_custom                 0.02      1.718         1.728         1.00      
+Hybrid_custom                 0.08      3.023         3.649         1.00      
