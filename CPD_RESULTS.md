@@ -22,7 +22,7 @@ changes only under `src/cpd/`, `outputs/cpd/`, and this file.
 
 ---
 
-## 0. Flagged for Larry before this goes in the paper
+## 0. Flagged for professor before this goes in the paper
 
 Two modeling choices here are **our interpretation**, not something the spec
 document fully pins down, and should be confirmed before publication:
@@ -57,9 +57,7 @@ than raw `r, Cs, Ci` (spec §10 explicitly allows this). An optional
 finite-bandwidth TIA lag (spec §5) is implemented but unused by default.
 
 ## 2. Symmetric vs. asymmetric — what we built and why
-
-Larry's email asks for "at least two device models, one with symmetric
-ON/OFF peaks and another with slightly asymmetric ON/OFF peaks." The
+The
 **symmetric** model is just the equation above with one `tau_CPD`. For the
 **asymmetric** model, we use the same equation but let the time constant
 depend on which direction the light is changing:
