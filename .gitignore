@@ -4,3 +4,19 @@ __pycache__/
 
 # Copyrighted source papers must never be committed to this repo
 *.pdf
+
+# Third-party footage dropped into videos/ is not committed (attribution in videos/*_SOURCE.txt);
+# our own synthetic clip is.
+videos/*
+!videos/README.md
+!videos/*.json
+!videos/*_SOURCE.txt
+!videos/synthetic_traffic.mp4
+!videos/synthetic_traffic_truth.csv
+
+# Cached simulation arrays for --replot (regenerable, large)
+outputs/**/cache_*.npz
+
+# Run logs (regenerable; contain local absolute paths)
+outputs/cpd_trap/**/*log*.txt
+outputs/cpd_trap/run_log.txt

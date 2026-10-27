@@ -14,6 +14,11 @@ shown below and see what kind of property we can look at ... run both models
 separately from both papers and a custom model that takes the best from
 both models and implements it."*
 
+**→ Latest work (10/28 meeting): CPD trap model, symmetric vs. asymmetric
+ON/OFF response, applied to a moving Gaussian spot and to uploaded videos —
+see [`MEETING_PREP_10-28.md`](MEETING_PREP_10-28.md) and `src/cpd_trap/`.
+Drop a clip in `videos/` and run `python src/cpd_trap/run_video_folder.py`.**
+
 **→ For the full quantitative comparison (tables, plots, animation, discussion),
 see [`RESULTS.md`](RESULTS.md). This README covers the theory and how to run it.**
 

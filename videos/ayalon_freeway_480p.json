@@ -1,0 +1,7 @@
+{"runs": [
+  {"tag": "ayalon_freeway_stabilized", "crop": [400, 190, 720, 370], "width": 160,
+   "max_frames": 150, "stabilize": true},
+  {"tag": "ayalon_freeway", "crop": [400, 190, 720, 370], "width": 160, "max_frames": 150},
+  {"tag": "ayalon_freeway_realtime", "crop": [400, 190, 720, 370], "width": 80,
+   "max_frames": 30, "frame_us": 33333, "conditions": ["A-reference"]}
+]}

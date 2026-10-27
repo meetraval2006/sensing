@@ -1,0 +1,22 @@
+|ON|/OFF for one Gaussian pass (sigma = 2 px) vs spot speed
+model                 2px/ms        4px/ms        8px/ms       16px/ms       32px/ms
+A-reference            1.004         1.024         1.106         1.334         1.835
+B-trap-sq1.0           1.124         1.114         1.169         1.385         1.888
+B-trap-sq0.7           1.017         1.025         1.112         1.347         1.856
+B-trap-sq0.5           1.052         1.028         1.104         1.343         1.860
+B-trap-sq0.2           1.266         1.263         1.373         1.706         2.457
+
+|ON|/OFF for a soft-edged bar (edge 0.3 px) at 2 px/ms vs time a pixel stays lit
+model               0.5 ms        1 ms      2.5 ms        5 ms       10 ms   rho_sq
+A-reference          1.087       1.011       1.000       1.000       1.000    1.000
+B-trap-sq1.0         1.158       1.069       1.022       0.994       0.977    0.993
+B-trap-sq0.7         1.104       0.950       0.775       0.700       0.678    0.695
+B-trap-sq0.5         1.098       0.883       0.647       0.581       0.571    0.496
+B-trap-sq0.2         1.420       0.989       0.628       0.584       0.581    0.198
+
+|ON|/OFF for a 10 ms-dwell bar at 2 px/ms vs edge width (sharper = closer to a square pulse)
+model               0.3 px      0.1 px     0.03 px   rho_sq
+B-trap-sq1.0         0.977       0.972       0.970    0.993
+B-trap-sq0.7         0.678       0.637       0.621    0.695
+B-trap-sq0.5         0.571       0.485       0.454    0.496
+B-trap-sq0.2         0.581       0.312       0.208    0.198
