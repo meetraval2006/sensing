@@ -270,18 +270,33 @@ A bright car drives left → right; then a dark car drives right → left and ch
 
 *Rows: input frame, then for each model its events (red ON / blue OFF) and its tracker map (black; red dot = traced position, cyan + = true centre). Bright car: red at the front, blue at the back. Dark car: reversed, because the road darkens at its front and brightens behind it.*
 
-| Model | Bright car error (px) | Dark car error (px), task tracker | Dark car error (px), bipolar tracker | ON / OFF events |
-|---|---|---|---|---|
-| `A-reference` (symmetric baseline) | 2.10 | 36.4 | 10.6 | 3223 / 3224 |
-| `B-trap-sq0.5` | 1.38 | 36.4 | 9.8 | 3162 / 3182 |
-| `B-trap-sq0.2` | **0.98** | 37.1 | 9.8 | 3123 / 3133 |
-| `ctrl-0.2` (imposed, not physics) | 0.90 | 30.3 (tracked only 49 % of the time) | 34.1 | 699 / 3224 |
+**Which rows are symmetric and which are asymmetric.** The label colour tells you; it is the same in the snapshot, the GIF and every other figure.
+
+| Label colour | Model | Response | What it is |
+|---|---|---|---|
+| **blue** | `A-reference` | **SYMMETRIC** | No traps. ON and OFF are equally strong (the baseline) |
+| **orange** | `B-trap-sq0.5` | **ASYMMETRIC (traps)** | Prof. Cheng's trap model. Weaker ON, stronger OFF; square-pulse ON/OFF 0.50 |
+| **orange** | `B-trap-sq0.2` | **ASYMMETRIC (traps)** | Prof. Cheng's trap model, his most asymmetric setting; square-pulse ON/OFF 0.20 |
+| **green** | `ctrl-0.2` | **ASYMMETRIC (imposed)** | Symmetric circuit with every ON scaled ×0.2 afterwards (Eq. 6). Not trap physics |
+
+How the asymmetry shows up in this clip:
+- **Trap models (orange).** The red ON edges look almost the same as the symmetric row, and the event counts stay about equal (ON/OFF count ≈ 1.0). The car's edge is sharp enough that ON still crosses the threshold. The asymmetry shows up as **timing**: ON fires later (measured directly in the spot study, §4; inferred here from the error), so the traced position stops running ahead of the car. That's why the bright-car error drops from 2.10 to 0.98 px.
+- **Imposed control (green).** Here the asymmetry is visible directly. The red ON edges thin out on the bright car and disappear on the dark car, leaving only 699 ON events against 3224 OFF.
+
+| Model | Response | Bright car error (px) | Dark car error (px), task tracker | Dark car error (px), bipolar tracker | ON / OFF events |
+|---|---|---|---|---|---|
+| `A-reference` (baseline) | **symmetric** | 2.10 | 36.4 | 10.6 | 3223 / 3224 |
+| `B-trap-sq0.5` | **asymmetric (traps)** | 1.38 | 36.4 | 9.8 | 3162 / 3182 |
+| `B-trap-sq0.2` | **asymmetric (traps)** | **0.98** | 37.1 | 9.8 | 3123 / 3133 |
+| `ctrl-0.2` (not physics) | **asymmetric (imposed)** | 0.90 | 30.3 (tracked only 49 % of the time) | 34.1 | 699 / 3224 |
 
 - **Bright car:** the same trend as the spot and the disk. A weaker ON gives a smaller lead and a lower error (2.10 → 0.98 px).
 - **Dark car:** the task tracker leaves a trail. The road behind a dark car brightens, which fires ON with no later OFF. The bipolar tracker cuts the dark-car error from ~36 px to ~10 px for the physical models, but fails for `ctrl-0.2`, which has almost no ON events left to clear the pixels.
 - **The bipolar tracker is not a free win:** on the bright car it is *worse* than the task tracker (4.02 / 2.61 / 1.11 px for symmetric / sq0.5 / sq0.2, vs 2.10 / 1.38 / 0.98). This is why the task tracker stays the primary result everywhere.
 
 ![synthetic gif](outputs/cpd_trap/video/synthetic_traffic/events_synthetic_traffic.gif)
+
+*GIF: one row per model, each headed by its name and whether it is SYMMETRIC or ASYMMETRIC. Columns: input frame, events, task tracker, bipolar tracker (our addition).*
 
 ### 6.3 Real freeway footage
 

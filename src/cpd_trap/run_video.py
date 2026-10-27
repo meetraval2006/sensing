@@ -53,7 +53,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 
 sys.path.insert(0, os.path.dirname(__file__))
-from cpd_trap_model import CPDArray, TASK_A_PAIRS, TASK_B_TRAPS, THETA, named, ALIAS, SHORT
+from cpd_trap_model import CPDArray, TASK_A_PAIRS, TASK_B_TRAPS, THETA, named, ALIAS
 from simulate import EventReadout
 from run_trajectory_study import ctrl_transform, RHO_SQ
 
@@ -179,13 +179,22 @@ def track_error(maps, truth, obj, xx, yy, W):
     return out
 
 
-def label(name):
-    s = f"{name}\n{SHORT.get(name, '')}"
+def family(name):
+    """(short tag, one-line meaning, colour) saying whether a condition is the
+    symmetric or an asymmetric response. Colours match the study figures."""
+    if name.startswith("A"):
+        return "SYMMETRIC", "no traps, ON and OFF equally strong", "#2a78d6"
     if name.startswith("B"):
-        s += f"\nrho_sq={RHO_SQ[name]:.2f}"
-    elif name.startswith("ctrl"):
-        s += "\n(not physics)"
-    return s
+        return ("ASYMMETRIC (traps)",
+                f"Prof. Cheng's trap model, weaker ON / stronger OFF, square-pulse ON/OFF {RHO_SQ[name]:.2f}",
+                "#c4501f")
+    return ("ASYMMETRIC (imposed)",
+            f"symmetric circuit with ON scaled x{name[5:]} afterwards, not trap physics", "#127a55")
+
+
+def row_heading(name):
+    tag, meaning, _ = family(name)
+    return f"{name}  =  {tag}:  {meaning}"
 
 
 def snapshot_sheet(frames, results, truth, clip, frame_us, start, path, n_cols=4):
@@ -220,9 +229,10 @@ def snapshot_sheet(frames, results, truth, clip, frame_us, start, path, n_cols=4
             if truth is not None and not np.isnan(truth[f, 0]):
                 b.plot(truth[f, 0], truth[f, 1], "c+", ms=8)
             if j == 0:
-                fam = "#2a78d6" if name.startswith("A") else "#c4501f" if name.startswith("B") else "#127a55"
-                a.set_ylabel(f"{name}\n{SHORT.get(name, '')}\nevents", fontsize=6.5, color=fam)
-                b.set_ylabel(f"{name}\n{SHORT.get(name, '')}\ntracker map", fontsize=6.5, color=fam)
+                tag, _, fam = family(name)
+                tag = tag.replace(" (", "\n(")
+                a.set_ylabel(f"{name}\n{tag}\nevents", fontsize=7.5, color=fam, fontweight="bold")
+                b.set_ylabel(f"{name}\n{tag}\ntracker map", fontsize=7.5, color=fam, fontweight="bold")
     axes[0, 0].set_ylabel("input frame", fontsize=7)
     for ax in axes.ravel():
         ax.set_xticks([]); ax.set_yticks([])
@@ -354,24 +364,32 @@ def main(argv=None):
     plt.close(fig)
 
     # ---- event movie -------------------------------------------------------
+    # Each row gets a large coloured heading above it naming the model and
+    # whether it is the symmetric or an asymmetric response (a sideways
+    # y-label was unreadable at GIF resolution).
     names = list(results)
-    fig, axes = plt.subplots(len(names), 4, figsize=(14, 2.3 * len(names)), squeeze=False)
+    fig_h = 0.9 + 3.0 * len(names) * min(1.0, 1.6 * H / W)
+    fig, axes = plt.subplots(len(names), 4, figsize=(14, fig_h), squeeze=False)
+    fig.subplots_adjust(left=0.01, right=0.99, top=1 - 0.9 / fig_h, bottom=0.01,
+                        wspace=0.04, hspace=0.75)
     handles = []
-    for row, name in zip(axes, names):
+    for i, (row, name) in enumerate(zip(axes, names)):
         _, ev_img, state, bip = results[name]
         a = row[0].imshow(frames[0], cmap="gray", vmin=0, vmax=1)
         b = row[1].imshow(ev_img[0], cmap="bwr", vmin=-1, vmax=1)
         c = row[2].imshow(state[0], cmap="Greys", vmin=0, vmax=1)
         d = row[3].imshow(bip[0], cmap="Greys", vmin=0, vmax=1)
-        dots = [r.plot([], [], "ro", ms=3)[0] for r in row[2:]]
-        row[0].set_ylabel(label(name), fontsize=6)
-        row[1].set_title("ON red / OFF blue (this frame)", fontsize=7)
-        row[2].set_title("spec tracker: ON sets, OFF resets", fontsize=7)
-        row[3].set_title("bipolar tracker (first event sets)", fontsize=7)
-        for x in row:
+        dots = [r.plot([], [], "ro", ms=4)[0] for r in row[2:]]
+        for x, t in zip(row, ("input frame", "events: ON red / OFF blue",
+                              "spec tracker (ON sets, OFF resets)", "bipolar tracker (our addition)")):
+            x.set_title(t, fontsize=9)
             x.set_xticks([]); x.set_yticks([])
+        _, _, fam = family(name)
+        top = row[0].get_position().y1
+        fig.text(0.01, top + 0.34 / fig_h, f"Row {i + 1}:  {row_heading(name)}",
+                 fontsize=12, fontweight="bold", color=fam, va="bottom")
         handles.append((a, b, c, d, dots, ev_img, state, bip))
-    ttl = fig.suptitle("")
+    ttl = fig.text(0.5, 1 - 0.12 / fig_h, "", ha="center", va="top", fontsize=12)
 
     def draw(f):
         for a, b, c, d, dots, ev_img, state, bip in handles:
@@ -385,8 +403,8 @@ def main(argv=None):
         ttl.set_text(f"{clip}  frame {f + start}  (t = {f * args.frame_us / 1000:.1f} ms CPD time)")
         return []
 
-    # every 2nd frame at 70 dpi keeps a 150-frame clip to a few MB for GitHub
-    FuncAnimation(fig, draw, frames=range(0, n_f, 2)).save(
+    # every 3rd frame at 70 dpi keeps a 150-frame clip to a few MB for GitHub
+    FuncAnimation(fig, draw, frames=range(0, n_f, 3)).save(
         os.path.join(out, f"events_{clip}.gif"), writer=PillowWriter(fps=8), dpi=70)
     plt.close(fig)
     print(f"saved to {out}")
